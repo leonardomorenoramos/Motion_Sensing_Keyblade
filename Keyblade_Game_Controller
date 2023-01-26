@@ -1,0 +1,234 @@
+#include <BleGamepad.h> 
+
+#include <MPU6050_tockn.h>
+#include <Wire.h>
+
+MPU6050 mpu6050(Wire);
+
+BleGamepad bleGamepad;
+
+// RIGHT-JOYSTICK
+#define Rx 36
+#define Ry 39
+#define R_Trig 27
+
+// LEFT-JOYSTICK
+#define Lx 34
+#define Ly 35
+#define L_Trig 13
+
+// D-PAD
+#define B1 16
+#define B2 17
+#define B3 18
+#define B4 19
+
+
+int buttons[6] = {16,17, 18, 19, 27 ,13};
+
+const int numberOfPotSamples = 5;     // Number of pot samples to take (to smooth the values)
+const int delayBetweenSamples = 2;    // Delay in milliseconds between pot samples
+const int delayBetweenHIDReports = 5; // Additional delay in milliseconds between HID reports
+const int debounceDelay = 10;        // Delay in milliseconds between button press
+
+int SWING_LIM = 90;//GYRO
+//int BLOCK_LIM = 15;//ANGLE
+
+int previousButton1State = HIGH;
+int previousButton2State = HIGH;
+int previousButton3State = HIGH;
+int previousButton4State = HIGH;
+
+int previousR_TrigState = HIGH;
+int previousL_TrigState = HIGH;
+
+int previousSWINGState = HIGH;
+//int previousBLOCKState = HIGH;
+
+int currentSWINGState;
+
+
+//int currentBLOCKState;
+
+void setup() 
+{
+  Serial.begin(115200);
+ // for (int i = 0; i < 7; i++) {
+ for (int i = 0; i < 6; i++) {
+    pinMode(buttons[i], INPUT_PULLUP);
+  }
+  
+  Wire.begin(21,22,0x68);//sda,scl e endereço do mpu
+  Wire. setClock ( 400000);
+  mpu6050.begin();
+  mpu6050.calcGyroOffsets(true);
+  
+  Serial.println("Starting BLE work!");
+  bleGamepad.begin();
+  // The default bleGamepad.begin() above is the same as bleGamepad.begin(16, 1, true, true, true, true, true, true, true, true, false, false, false, false, false);
+  // which enables a gamepad with 16 buttons, 1 hat switch, enabled x, y, z, rZ, rX, rY, slider 1, slider 2 and disabled rudder, throttle, accelerator, brake, steering
+  // Auto reporting is enabled by default. 
+  // Use bleGamepad.setAutoReport(false); to disable auto reporting, and then use bleGamepad.sendReport(); as needed
+}
+void loop() {
+if (bleGamepad.isConnected()) {
+   mpu6050.update();
+   //IMU SENSING
+ int Swing= mpu6050.getGyroY();
+  if ( Swing>=SWING_LIM )
+  {
+     currentSWINGState = LOW;
+  } else if(Swing<SWING_LIM )
+  {
+    currentSWINGState = HIGH;
+  }
+
+  /* int Block= mpu6050.getAngleY();
+  if ( Block>=BLOCK_LIM )
+  {
+     currentBLOCKState = LOW;
+  } else if(Swing<BLOCK_LIM )
+  {
+    currentBLOCKState = HIGH;
+  }
+  */
+    int currentButton1State = digitalRead(B1);
+    int currentButton2State = digitalRead(B2);
+    int currentButton3State = digitalRead(B3);
+    int currentButton4State = digitalRead(B4);
+
+ int currentR_TrigState = digitalRead(R_Trig);
+ int currentL_TrigState = digitalRead(L_Trig);
+ 
+   
+    
+                           
+    if (currentButton1State != previousButton1State) {
+      if (currentButton1State == LOW)
+        bleGamepad.press(BUTTON_1);
+      else
+        bleGamepad.release(BUTTON_1);
+    }
+    previousButton1State = currentButton1State;
+
+    if (currentButton2State != previousButton2State) {
+      if (currentButton2State == LOW)
+        bleGamepad.press(BUTTON_2);
+      else
+        bleGamepad.release(BUTTON_2);
+    }
+    previousButton2State = currentButton2State;
+
+    if (currentButton3State != previousButton3State) {
+      if (currentButton3State == LOW)
+        bleGamepad.press(BUTTON_3);
+      else
+        bleGamepad.release(BUTTON_3);
+    }
+    previousButton3State = currentButton3State;
+
+   /* if (currentButton4State != previousButton4State) {
+      if (currentButton4State == LOW)
+       // bleGamepad.press(BUTTON_4);
+      else
+     //   bleGamepad.release(BUTTON_4);
+    }
+    previousButton4State = currentButton4State;
+*/
+  
+
+ if (currentR_TrigState !=  previousR_TrigState) {
+      if (currentR_TrigState == LOW)
+        bleGamepad.press(BUTTON_6);
+      else
+        bleGamepad.release(BUTTON_6);
+    }
+    previousR_TrigState = currentR_TrigState;
+
+    if (currentL_TrigState !=  previousL_TrigState) {
+      if (currentL_TrigState == LOW)
+        bleGamepad.press(BUTTON_7);
+      else
+        bleGamepad.release(BUTTON_7);
+    }
+    previousL_TrigState = currentL_TrigState;
+
+//Botão por movimento da gayblade
+
+     if (currentSWINGState != previousSWINGState) {
+      if (currentSWINGState == LOW)
+        bleGamepad.press(BUTTON_8);
+      else
+        bleGamepad.release(BUTTON_8);
+    }
+    previousSWINGState = currentSWINGState;
+/*
+       if (currentBLOCKState != previousBLOCKState) {
+      if (currentBLOCKState == LOW)
+        bleGamepad.press(BUTTON_9);
+      else
+        bleGamepad.release(BUTTON_9);
+    }
+    previousBLOCKState = currentBLOCKState;
+    */
+
+    int potValues3[numberOfPotSamples];
+    for (int i = 0 ; i < numberOfPotSamples ; i++) {
+      potValues3[i] = analogRead(Rx);
+      delay(delayBetweenSamples);
+    }
+    int potValue3 = 0;
+    for (int i = 0 ; i < numberOfPotSamples ; i++) {
+      potValue3 += potValues3[i];
+    }
+    potValue3 = potValue3 / numberOfPotSamples;
+    int adjustedValue3 = map(potValue3, 0, 4095, 127, -127);
+
+
+    int potValues4[numberOfPotSamples];
+    for (int i = 0 ; i < numberOfPotSamples ; i++) {
+      potValues4[i] = analogRead(Ry);
+      delay(delayBetweenSamples);
+    }
+    int potValue4 = 0;
+    for (int i = 0 ; i < numberOfPotSamples ; i++) {
+      potValue4 += potValues4[i];
+    }
+    potValue4 = potValue4 / numberOfPotSamples;
+    int adjustedValue4 = map(potValue4, 0, 4095, 127, -127);
+
+    
+
+   int potValues5[numberOfPotSamples];
+    for (int i = 0 ; i < numberOfPotSamples ; i++) {
+      potValues5[i] = analogRead(Lx);
+      delay(delayBetweenSamples);
+    }
+    int potValue5 = 0;
+    for (int i = 0 ; i < numberOfPotSamples ; i++) {
+      potValue5 += potValues5[i];
+    }
+    potValue5 = potValue5 / numberOfPotSamples;
+    int adjustedValue5 = map(potValue5, 0, 4095, 127, -127);
+
+     int potValues6[numberOfPotSamples];
+    for (int i = 0 ; i < numberOfPotSamples ; i++) {
+      potValues6[i] = analogRead(Ly);
+      delay(delayBetweenSamples);
+    }
+    int potValue6 = 0;
+    for (int i = 0 ; i < numberOfPotSamples ; i++) {
+      potValue6 += potValues6[i];
+    }
+    potValue6 = potValue6 / numberOfPotSamples;
+    int adjustedValue6 = map(potValue6, 0, 4095, 127, -127);
+        /*
+      Serial.print(adjustedValue3);
+      Serial.print(" || ");
+      Serial.println(adjustedValue4);
+    */
+    bleGamepad.setAxes(adjustedValue3, adjustedValue4,adjustedValue5, adjustedValue6, 0, 0, 0, 0, DPAD_CENTERED);
+//   bleGamepad.setRightThumb(adjustedValue3, adjustedValue4);
+    delay(delayBetweenHIDReports);
+  }
+  }
